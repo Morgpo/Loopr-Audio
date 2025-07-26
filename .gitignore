@@ -1,0 +1,18 @@
+# Python
+build/
+dist/
+
+# PyInstaller
+*.spec
+
+# Virtual Environment
+.venv/
+
+# Application specific
+config.json
+*.png
+*.ico
+
+# Build artifacts
+build/
+dist/
