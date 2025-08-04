@@ -14,6 +14,8 @@ import winreg
 
 class LooprAudio:
     def __init__(self):
+        time.sleep(3)  # Brief delay for Windows startup stability
+
         self.root = tk.Tk()
         self.root.title("Loopr Audio")
         self.root.geometry("480x360")
@@ -54,12 +56,19 @@ class LooprAudio:
         # Startup setting
         self.run_on_startup = False
         
-        # Config file path
-        self.config_file = Path("config.json")
+        # Config file path - make it relative to the application location, not working directory
+        if getattr(sys, 'frozen', False):
+            # Running as compiled executable - config next to the exe
+            config_dir = Path(sys.executable).parent
+        else:
+            # Running as Python script - config next to the script
+            config_dir = Path(__file__).parent
+        
+        self.config_file = config_dir / "config.json"
         
         # System tray
         self.tray_icon = None
-        
+
         # Load saved settings
         self.load_config()
         
