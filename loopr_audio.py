@@ -84,10 +84,12 @@ class LooprAudio:
 
         # Restore playback state from last run (simple play/stop flag)
         if self.is_playing:
-            if self.current_file and os.path.exists(self.current_file):
+            if isinstance(self.current_file, (str, os.PathLike)) and self.current_file and os.path.exists(self.current_file):
                 self.start_playback()
             else:
+                # Invalid or missing path; reset playback state to avoid startup crash
                 self.is_playing = False
+                self.current_file = None
         
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_window_close)
