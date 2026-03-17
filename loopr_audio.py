@@ -672,6 +672,31 @@ class LooprAudio:
         except Exception as e:
             print(f"Error saving config: {e}")
     
+    @property
+    def is_playing(self):
+        """Current playback state, persisted to config.json."""
+        # Use a backing attribute so we can hook assignment via the setter.
+        return getattr(self, '_is_playing', False)
+    
+    @is_playing.setter
+    def is_playing(self, value):
+        """Update playback state and persist to config when available."""
+        new_value = bool(value)
+        # Get the previous value, defaulting to False if unset.
+        old_value = getattr(self, '_is_playing', False)
+        # Always update the backing field, but only persist on real changes.
+        self._is_playing = new_value
+        if new_value == old_value:
+            return
+        # During very early initialization, config_file may not yet exist.
+        if not hasattr(self, 'config_file'):
+            return
+        try:
+            self.save_config()
+        except Exception as e:
+            # Avoid breaking playback control if saving fails.
+            print(f"Error saving config after is_playing change: {e}")
+    
     def on_window_close(self):
         """Handle window close event - minimize to tray"""
         self.hide_window()
