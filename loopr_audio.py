@@ -11,6 +11,7 @@ import pystray
 from PIL import Image, ImageDraw
 import atexit
 import winreg
+from json import JSONDecodeError
 
 class LooprAudio:
     def __init__(self):
@@ -80,6 +81,15 @@ class LooprAudio:
         
         # Setup system tray
         self.setup_tray()
+
+        # Restore playback state from last run (simple play/stop flag)
+        if self.is_playing:
+            if isinstance(self.current_file, (str, os.PathLike)) and self.current_file and os.path.exists(self.current_file):
+                self.start_playback()
+            else:
+                # Invalid or missing path; reset playback state to avoid startup crash
+                self.is_playing = False
+                self.current_file = None
         
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_window_close)
@@ -541,8 +551,8 @@ class LooprAudio:
             # Wait for music to finish or stop signal
             while pygame.mixer.music.get_busy() and not self.should_stop:
                 time.sleep(0.1)
-                    
-        except Exception as e:
+
+        except (pygame.error, RuntimeError, FileNotFoundError, OSError) as e:
             print(f"Playback error: {e}")
         finally:
             if not self.should_stop:
@@ -623,21 +633,38 @@ class LooprAudio:
     
     def load_config(self):
         """Load saved configuration"""
+        self.current_file = None
+        self.volume = 0.7
+        self.is_looping = True
+        self.run_on_startup = False
+        self.is_playing = False
+
+        if not self.config_file.exists():
+            return
+
         try:
-            if self.config_file.exists():
-                with open(self.config_file, 'r') as f:
-                    config = json.load(f)
-                
-                self.current_file = config.get('current_file')
-                self.volume = config.get('volume', 0.7)
-                self.is_looping = config.get('is_looping', True)
-                self.run_on_startup = config.get('run_on_startup', False)
-                
-                # Verify startup status with registry
-                actual_startup_status = self.check_startup_status()
-                if self.run_on_startup != actual_startup_status:
-                    self.run_on_startup = actual_startup_status
-                
+            with open(self.config_file, 'r') as f:
+                config = json.load(f)
+
+            self.current_file = config.get('current_file')
+            self.volume = config.get('volume', 0.7)
+            self.is_looping = config.get('is_looping', True)
+            self.run_on_startup = config.get('run_on_startup', False)
+            self.is_playing = config.get('is_playing', False)
+
+            # Reconcile run_on_startup with actual registry state.
+            # If the registry was changed outside the app, this ensures
+            # the in-memory flag (and UI) matches the real startup status.
+            try:
+                registry_startup = self.check_startup_status()
+                if isinstance(registry_startup, bool):
+                    self.run_on_startup = registry_startup
+            except Exception as registry_error:
+                # If we cannot read the registry, fall back to the config value.
+                print(f"Error checking startup status from registry: {registry_error}")
+
+        except (JSONDecodeError, OSError, TypeError, ValueError) as e:
+            print(f"Error loading config, using defaults: {e}")
         except Exception as e:
             print(f"Error loading config: {e}")
     
@@ -648,7 +675,8 @@ class LooprAudio:
                 'current_file': self.current_file,
                 'volume': self.volume,
                 'is_looping': self.is_looping,
-                'run_on_startup': self.run_on_startup
+                'run_on_startup': self.run_on_startup,
+                'is_playing': self.is_playing
             }
             
             with open(self.config_file, 'w') as f:
@@ -656,6 +684,31 @@ class LooprAudio:
                 
         except Exception as e:
             print(f"Error saving config: {e}")
+    
+    @property
+    def is_playing(self):
+        """Current playback state, persisted to config.json."""
+        # Use a backing attribute so we can hook assignment via the setter.
+        return getattr(self, '_is_playing', False)
+    
+    @is_playing.setter
+    def is_playing(self, value):
+        """Update playback state and persist to config when available."""
+        new_value = bool(value)
+        # Get the previous value, defaulting to False if unset.
+        old_value = getattr(self, '_is_playing', False)
+        # Always update the backing field, but only persist on real changes.
+        self._is_playing = new_value
+        if new_value == old_value:
+            return
+        # During very early initialization, config_file may not yet exist.
+        if not hasattr(self, 'config_file'):
+            return
+        try:
+            self.save_config()
+        except Exception as e:
+            # Avoid breaking playback control if saving fails.
+            print(f"Error saving config after is_playing change: {e}")
     
     def on_window_close(self):
         """Handle window close event - minimize to tray"""
