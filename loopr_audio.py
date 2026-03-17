@@ -652,6 +652,17 @@ class LooprAudio:
             self.run_on_startup = config.get('run_on_startup', False)
             self.is_playing = config.get('is_playing', False)
 
+            # Reconcile run_on_startup with actual registry state.
+            # If the registry was changed outside the app, this ensures
+            # the in-memory flag (and UI) matches the real startup status.
+            try:
+                registry_startup = self.check_startup_status()
+                if isinstance(registry_startup, bool):
+                    self.run_on_startup = registry_startup
+            except Exception as registry_error:
+                # If we cannot read the registry, fall back to the config value.
+                print(f"Error checking startup status from registry: {registry_error}")
+
         except (JSONDecodeError, OSError, TypeError, ValueError) as e:
             print(f"Error loading config, using defaults: {e}")
         except Exception as e:
