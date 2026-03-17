@@ -79,6 +79,7 @@ When you close the main window, Loopr Audio minimizes to your system tray:
 Loopr Audio automatically saves your preferences:
 
 - **Last audio file**: Remembers your selected file
+- **Playback state**: Restores whether playback was last in Play or Stop
 - **Volume level**: Keeps your preferred volume setting  
 - **Loop setting**: Maintains loop on/off preference
 - **Startup preference**: Whether to start with Windows

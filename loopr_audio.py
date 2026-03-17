@@ -11,6 +11,7 @@ import pystray
 from PIL import Image, ImageDraw
 import atexit
 import winreg
+from json import JSONDecodeError
 
 class LooprAudio:
     def __init__(self):
@@ -80,6 +81,13 @@ class LooprAudio:
         
         # Setup system tray
         self.setup_tray()
+
+        # Restore playback state from last run (simple play/stop flag)
+        if self.is_playing:
+            if self.current_file and os.path.exists(self.current_file):
+                self.start_playback()
+            else:
+                self.is_playing = False
         
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_window_close)
@@ -541,8 +549,8 @@ class LooprAudio:
             # Wait for music to finish or stop signal
             while pygame.mixer.music.get_busy() and not self.should_stop:
                 time.sleep(0.1)
-                    
-        except Exception as e:
+
+        except (pygame.error, RuntimeError, FileNotFoundError, OSError) as e:
             print(f"Playback error: {e}")
         finally:
             if not self.should_stop:
@@ -623,21 +631,27 @@ class LooprAudio:
     
     def load_config(self):
         """Load saved configuration"""
+        self.current_file = None
+        self.volume = 0.7
+        self.is_looping = True
+        self.run_on_startup = False
+        self.is_playing = False
+
+        if not self.config_file.exists():
+            return
+
         try:
-            if self.config_file.exists():
-                with open(self.config_file, 'r') as f:
-                    config = json.load(f)
-                
-                self.current_file = config.get('current_file')
-                self.volume = config.get('volume', 0.7)
-                self.is_looping = config.get('is_looping', True)
-                self.run_on_startup = config.get('run_on_startup', False)
-                
-                # Verify startup status with registry
-                actual_startup_status = self.check_startup_status()
-                if self.run_on_startup != actual_startup_status:
-                    self.run_on_startup = actual_startup_status
-                
+            with open(self.config_file, 'r') as f:
+                config = json.load(f)
+
+            self.current_file = config.get('current_file')
+            self.volume = config.get('volume', 0.7)
+            self.is_looping = config.get('is_looping', True)
+            self.run_on_startup = config.get('run_on_startup', False)
+            self.is_playing = config.get('is_playing', False)
+
+        except (JSONDecodeError, OSError, TypeError, ValueError) as e:
+            print(f"Error loading config, using defaults: {e}")
         except Exception as e:
             print(f"Error loading config: {e}")
     
@@ -648,7 +662,8 @@ class LooprAudio:
                 'current_file': self.current_file,
                 'volume': self.volume,
                 'is_looping': self.is_looping,
-                'run_on_startup': self.run_on_startup
+                'run_on_startup': self.run_on_startup,
+                'is_playing': self.is_playing
             }
             
             with open(self.config_file, 'w') as f:

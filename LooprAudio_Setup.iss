@@ -2,7 +2,7 @@
 ; This script creates an installer for the Loopr Audio application
 
 #define MyAppName "Loopr Audio"
-#define MyAppVersion "1.0"
+#define MyAppVersion "1.1"
 #define MyAppPublisher "Morgpo"
 #define MyAppURL "https://github.com/Morgpo/Loopr-Audio"
 #define MyAppExeName "LooprAudio.exe"
@@ -10,7 +10,7 @@
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
-AppId={{8B5CF6A1-4F46-E5D3-1E1B-4B31262173A3}
+AppId={{8B5CF6A1-4F46-E5D3-1E1B-4B31262173A3}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
